@@ -12,7 +12,7 @@ def parse_arguments(argv):
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--logs_base_dir', type=str,
-                        help='Directory where to write event logs.', default='/media/_Data/multil_classification/logs')
+                        help='Directory where to write event logs.', default='~/logs/facenet')
     parser.add_argument('--data_path', type=str,
                         help='Directory tfrecord dir.', default='/media/_Data/multil_classification/tfrecord')
     parser.add_argument('--learn_rate', type=float,
@@ -23,44 +23,36 @@ def parse_arguments(argv):
                         help='input net weight.', default=224)
     parser.add_argument('--input_height', type=float,
                         help='input net height.', default=224)
-    parser.add_argument('--epoch', type=float, help='number of set.', default=400)
-    parser.add_argument('--batch_size', type=float, help='batch image number.', default=200)
     return parser.parse_args(argv)
 
 
-args = parse_arguments(sys.argv[1:])
+# args = parse_arguments(sys.argv[1:])
 
 # 将所有的图片resize成100*100
 # 224, 224
-# w = 100
-# h = 100
-w = args.input_weight
-h = args.input_height
+w = 224
+h = 224
+# w = args.input_weight
+# h = args.input_height
 c = 3
 
-data_path = args.data_path
-learn_rate_create = args.learn_rate
-save_model_dir = os.path.join(args.logs_base_dir, 'Model')
-board_dir = os.path.join(args.logs_base_dir, 'Logs')
-if not os.path.exists(save_model_dir):
+data_path = '/Users/qianleishi/datasets/traindata.tfrecords-000'
+learn_rate_create = 0.001
+save_model_dir = os.path.join('models/', 'Model')
+board_dir = os.path.join('logs/', 'Logs')
+if os.path.exists(save_model_dir):
     os.mkdir(save_model_dir)
-if not os.path.exists(board_dir):
+if os.path.exists(board_dir):
     os.mkdir(board_dir)
 
-tf_data_list = []
-test_data_list = []
-data_classes = os.listdir(data_path)
-nor_path = len(data_classes)
-train_num = int(nor_path * 0.8)
-for i in range(nor_path):
-    tf_path = os.path.join(data_path, data_classes[i])
-    if i < train_num:
-        tf_data_list.append(tf_path)
-    else:
-        test_data_list.append(tf_path)
+# tf_data_list = []
+# test_data_list = []
+# data_classes = os.listdir(data_path)
+# nor_path = len(data_classes)
+# train_num = int(nor_path * 0.8)
 
-filename_queue = tf.train.string_input_producer(tf_data_list)  # 读入流中
-test_filename_queue = tf.train.string_input_producer(test_data_list)
+filename_queue = tf.train.string_input_producer([data_path, ])  # 读入流中
+test_filename_queue = tf.train.string_input_producer([data_path, ])
 reader = tf.TFRecordReader()
 _, serialized_example = reader.read(filename_queue)
 
@@ -99,8 +91,8 @@ test_img = tf.cast(test_img, tf.float32) * (1. / 255) - 0.5
 test_label = tf.cast(test_features['label'], tf.int32)
 
 # 组合batch
-batch_size = args.batch_size
-mini_after_dequeue = batch_size * 3
+batch_size = 200
+mini_after_dequeue = 100
 capacity = mini_after_dequeue + 3 * batch_size
 # reader = tf.TFRecordReader()
 
@@ -147,12 +139,14 @@ with tf.Session() as sess:
     threads = tf.train.start_queue_runners(sess=sess)
     # training
     train_loss, train_acc, n_batch = 0, 0, 0
-    for i in range(args.epoch):
+    for i in range(400):
         x_train, y_train = sess.run([example_batch, label_batch])
         _, err, ac = sess.run([train_op, loss, acc], feed_dict={
             x: x_train, y_: y_train})
         print('[%d / %d] : Loss %f  acc %f' %
-              (400, i, err, ac))
+              (n_batch, i, err, ac))
+        tf.scalar_summary('accuracy', ac)
+        tf.scalar_summary('error', err)
 
     train_ac = (train_acc / n_batch)
 
